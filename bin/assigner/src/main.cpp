@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
+#include <string>
 
 #ifndef BOOST_FILESYSTEM_NO_DEPRECATED
 #define BOOST_FILESYSTEM_NO_DEPRECATED
@@ -83,20 +84,13 @@ void print_circuit(const ConstraintSystemType &circuit, std::ostream &out = std:
     print_hex_byteblob(out, cv.cbegin(), cv.cend(), false);
 }
 
-template<typename CurveType>
+template<typename CurveType, typename ArithmetizationParams>
 int curve_dependent_main(std::string bytecode_file_name,
                           std::string public_input_file_name,
                           std::string assignment_table_file_name,
                           std::string circuit_file_name,
                           bool check_validity) {
     using BlueprintFieldType = typename CurveType::base_field_type;
-    constexpr std::size_t WitnessColumns = 15;
-    constexpr std::size_t PublicInputColumns = 5;
-    constexpr std::size_t ConstantColumns = 5;
-    constexpr std::size_t SelectorColumns = 50;
-
-    using ArithmetizationParams =
-        zk::snark::plonk_arithmetization_params<WitnessColumns, PublicInputColumns, ConstantColumns, SelectorColumns>;
     using ConstraintSystemType = zk::snark::plonk_constraint_system<BlueprintFieldType, ArithmetizationParams>;
 
     std::vector<typename BlueprintFieldType::value_type> public_input;
@@ -184,7 +178,8 @@ int main(int argc, char *argv[]) {
             ("public-input,i", boost::program_options::value<std::string>(), "Public input file")
             ("assignment-table,t", boost::program_options::value<std::string>(), "Assignment table output file")
             ("circuit,c", boost::program_options::value<std::string>(), "Circuit output file")
-            ("elliptic-curve-type,e", boost::program_options::value<std::string>(), "Native elliptic curve type (pallas, vesta, ed25519, bls12-381)")
+            ("elliptic-curve-type,e", boost::program_options::value<std::string>(), "Native elliptic curve type (pallas, vesta, ed25519, bls12-381). If not set, pallas is used by default")
+            ("arithmetization-setting,s", boost::program_options::value<std::string>(), "Arithmetization setting: standard, tiny or wide. If not set, standard is used by default")
             ("check", "Check satisfiability of the generated circuit");
     // clang-format on
 
@@ -203,6 +198,7 @@ int main(int argc, char *argv[]) {
     std::string assignment_table_file_name;
     std::string circuit_file_name;
     std::string elliptic_curve;
+    std::string arithmetization_setting;
 
     if (vm.count("bytecode")) {
         bytecode_file_name = vm["bytecode"].as<std::string>();
@@ -239,9 +235,8 @@ int main(int argc, char *argv[]) {
     if (vm.count("elliptic-curve-type")) {
         elliptic_curve = vm["elliptic-curve-type"].as<std::string>();
     } else {
-        std::cerr << "Invalid command line argument - elliptic curve type is not specified" << std::endl;
-        std::cout << options_desc << std::endl;
-        return 1;
+        std::cout << "Command line argument -e (Native elliptic curve type) not recognized: " << elliptic_curve << ". Pallas field is used by default." << std::endl;
+        elliptic_curve = "pallas";
     }
 
     std::map<std::string, int> curve_options{
@@ -250,16 +245,45 @@ int main(int argc, char *argv[]) {
         {"ed25519", 2},
         {"bls12-381", 3},
     };
-
-    if (curve_options.find(elliptic_curve) == curve_options.end()) {
-        std::cerr << "Invalid command line argument -e (Native elliptic curve type): " << elliptic_curve << std::endl;
-        std::cout << options_desc << std::endl;
-        return 1;
+    
+    if (vm.count("arithmetization-setting")){
+        arithmetization_setting = vm["arithmetization-setting"].as<std::string>();
+    } else {
+        std::cout << "Command line argument -s (Arithmetization setting) not recognized: " << arithmetization_setting << ". Standard arithmetization setting is used by default." << std::endl;
+        arithmetization_setting = "standard";
     }
+
+    std::map<std::string, int> arithmetization_options{
+        {"tiny", 0},
+        {"standard", 1},
+        {"wide", 2},
+    };
+    
+    using wt9pi1cn1 = zk::snark::plonk_arithmetization_params<9,1,1,50>;
+    using wt15pi5cn5 = zk::snark::plonk_arithmetization_params<15,5,5,50>;
+    using wt150pi5cn1 = zk::snark::plonk_arithmetization_params<150,5,1,50>;
+
+    using arithmetization_type = wt15pi5cn5;
 
     switch (curve_options[elliptic_curve]) {
         case 0: {
-            return curve_dependent_main<typename algebra::curves::pallas>(bytecode_file_name, public_input_file_name, assignment_table_file_name, circuit_file_name, vm.count("check"));
+            switch(arithmetization_options[arithmetization_setting]){
+                case 0: {
+                    using arithmetization_type = wt9pi1cn1;
+                    return curve_dependent_main<typename algebra::curves::pallas, arithmetization_type>(bytecode_file_name, public_input_file_name, assignment_table_file_name, circuit_file_name, vm.count("check"));
+                    break;
+                }
+                case 1: {
+                    using arithmetization_type = wt15pi5cn5;
+                    return curve_dependent_main<typename algebra::curves::pallas, arithmetization_type>(bytecode_file_name, public_input_file_name, assignment_table_file_name, circuit_file_name, vm.count("check"));
+                    break;
+                }
+                case 2: {
+                    using arithmetization_type = wt150pi5cn1;
+                    return curve_dependent_main<typename algebra::curves::pallas, arithmetization_type>(bytecode_file_name, public_input_file_name, assignment_table_file_name, circuit_file_name, vm.count("check"));
+                    break;
+                }
+            };            
             break;
         }
         case 1: {

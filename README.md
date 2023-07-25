@@ -212,3 +212,7 @@ ${ZKLLVM_BUILD:-build}/bin/assigner/assigner -b ${ZKLLVM_BUILD:-build}/examples/
 make -C ${ZKLLVM_BUILD:-build} circuit_cpp_examples -j$(sysctl -n hw.logicalcpu)
 ${ZKLLVM_BUILD:-build}/bin/assigner/assigner -b ${ZKLLVM_BUILD:-build}/examples/cpp/arithmetics_example.bc -i examples/inputs/arithmetics.inp -t assignment.tbl -c circuit.crct -e pallas --check
 ```
+
+### Choosing the arithmetization setting
+
+The `assigner` supports multiple arithmetization settings. The default setting is `stanard`, which leads to the assignment table of 15 witness, 5 public input and 5 constant columns. You can choose the arithmetization setting by passing the `--arithmetization-setting` parameter to the `assigner`. The following arithmetization settings are supported: `standard`, `wide` (plonky2-alike 150 witness columns table) and `tiny` (with only 9 witness columns).
