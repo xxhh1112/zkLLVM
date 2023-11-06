@@ -119,3 +119,5 @@ add_example_without_proving(balances_tree_cpp_example SOURCES balances_tree.cpp 
 
 add_example_without_proving(eddsa_signature_verification_cpp SOURCES eddsa_signature_verification.cpp INPUT eddsa_signature_verification.inp)
 add_example_without_proving(zkbridge_cpp SOURCES zkbridge.cpp INPUT zkbridge.inp)
+
+# add_example_with_proving(bls12_381_curve_add SOURCES bls12_381_curve_add.cpp INPUT bls12_381_curve_add.inp)
